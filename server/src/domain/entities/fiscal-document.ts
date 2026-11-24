@@ -17,6 +17,34 @@ export interface NfeItem {
   description: string;
   quantity: number | null;
   total: number | null;
+  code?: string | null;
+  ncm?: string | null;
+  cfop?: string | null;
+  unit?: string | null;
+  unitPrice?: number | null;
+  icms?: number | null;
+  pis?: number | null;
+  cofins?: number | null;
+}
+
+/** Detalhes da NF-e além dos campos principais: endereços, impostos, pagamento e observações. */
+export interface NfeDetails {
+  operationNature: string | null;
+  operationType: 'ENTRADA' | 'SAIDA' | null;
+  issuerAddress: string | null;
+  recipientAddress: string | null;
+  taxes: {
+    icmsBase: number | null;
+    icms: number | null;
+    pis: number | null;
+    cofins: number | null;
+    ipi: number | null;
+    discount: number | null;
+    freight: number | null;
+  };
+  payments: { method: string | null; amount: number | null }[];
+  carrier: string | null;
+  additionalInfo: string | null;
 }
 
 /**
@@ -34,6 +62,7 @@ export interface FiscalData {
   issuedAt: Date | null;
   totalAmount: number | null;
   items: NfeItem[];
+  details: NfeDetails | null;
 }
 
 export const EMPTY_FISCAL_DATA: FiscalData = {
@@ -47,4 +76,5 @@ export const EMPTY_FISCAL_DATA: FiscalData = {
   issuedAt: null,
   totalAmount: null,
   items: [],
+  details: null,
 };

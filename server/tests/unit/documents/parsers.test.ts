@@ -1,8 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+
 import { NfeXmlParser } from '../../../src/infrastructure/parsers/nfe-xml-parser.js';
 import { UnpdfTextExtractor } from '../../../src/infrastructure/parsers/pdf-text-extractor.js';
 import { XmlParseError } from '../../../src/application/ports/document-processing.ports.js';
 import { VALID_ACCESS_KEY, buildNfeXml, buildPdf, ISSUER_CNPJ } from '../../fixtures/documents.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const parser = new NfeXmlParser();
 
@@ -31,7 +37,7 @@ describe('NfeXmlParser (NF-e)', () => {
     );
 
     expect(many.supported && many.data.items).toHaveLength(2);
-    expect(one.supported && one.data.items).toEqual([{ description: 'Água', quantity: 2, total: 4 }]);
+    expect(one.supported && one.data.items).toMatchObject([{ description: 'Água', quantity: 2, total: 4 }]);
   });
 
   it('aceita NF-e envelopada em nfeProc', () => {
@@ -68,6 +74,30 @@ describe('NfeXmlParser (NF-e)', () => {
 
     // Recusado como XML inválido: nenhuma entidade externa é resolvida.
     expect(() => parser.parse(Buffer.from(malicious))).toThrow(XmlParseError);
+  });
+});
+
+describe('NfeXmlParser (NF-e completa)', () => {
+  it('extrai itens com NCM, CFOP e impostos, totais, endereços, pagamentos e observações', () => {
+    const xml = fs.readFileSync(path.resolve(__dirname, '../../../../../exemplos-fiscal-assistant/21-nfe-completa-para-analise.xml'), 'utf8');
+    const result = parser.parse(Buffer.from(xml));
+    if (!result.supported) throw new Error('deveria ser NF-e');
+    const { data } = result;
+
+    expect(data.totalAmount).toBe(7074);
+    expect(data.items).toHaveLength(5);
+    expect(data.items[0]).toMatchObject({ description: 'Farinha de trigo tipo 1 - saco 25 kg', ncm: '11010010', cfop: '5102', unit: 'SC', quantity: 40, unitPrice: 118, total: 4720, icms: 566.4 });
+    expect(data.details).toMatchObject({
+      operationType: 'SAIDA',
+      taxes: { icms: 830.88, pis: 114.25, cofins: 526.22, freight: 150, discount: 0 },
+      carrier: 'Transportes Rápido Sul Ltda',
+    });
+    expect(data.details?.issuerAddress).toMatch(/Rua das Acácias, 450 - Centro - Curitiba\/PR/);
+    expect(data.details?.payments).toEqual([
+      { method: 'Pix', amount: 4000 },
+      { method: 'Boleto bancário', amount: 3074 },
+    ]);
+    expect(data.details?.additionalInfo).toMatch(/Pedido 4471/);
   });
 });
 

@@ -1,5 +1,5 @@
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import type { FiscalData, NfeItem } from '../../domain/entities/fiscal-document.js';
+import type { FiscalData, NfeDetails, NfeItem } from '../../domain/entities/fiscal-document.js';
 import {
   XmlParseError,
   type XmlDocumentParser,
@@ -7,6 +7,12 @@ import {
 } from '../../application/ports/document-processing.ports.js';
 
 const MAX_ITEMS = 200;
+const PAYMENT_METHODS: Record<string, string> = {
+  '01': 'Dinheiro', '02': 'Cheque', '03': 'Cartão de crédito', '04': 'Cartão de débito',
+  '05': 'Crédito loja', '10': 'Vale alimentação', '11': 'Vale refeição', '12': 'Vale presente',
+  '13': 'Vale combustível', '15': 'Boleto bancário', '16': 'Depósito bancário',
+  '17': 'Pix', '18': 'Transferência bancária', '19': 'Programa de fidelidade', '90': 'Sem pagamento', '99': 'Outros',
+};
 
 type Node = Record<string, unknown>;
 
@@ -37,7 +43,7 @@ export class NfeXmlParser implements XmlDocumentParser {
       root = this.parser.parse(text) as Node;
     } catch {
       // DOCTYPE com entidades é recusado pelo parser (proteção contra XXE): tratado como XML inválido.
-      throw new XmlParseError("XML com DOCTYPE ou entidades não é aceito.");
+      throw new XmlParseError('XML com DOCTYPE ou entidades não é aceito.');
     }
     const infNFe = findFirst(root, 'infNFe');
     if (!infNFe) {
@@ -68,19 +74,73 @@ function toFiscalData(root: Node, infNFe: Node): FiscalData {
     issuedAt: parseDate(text(ide.dhEmi) ?? text(ide.dEmi)),
     totalAmount: number(total.vNF),
     items: toItems(infNFe),
+    details: toDetails(infNFe, ide, emit, dest, total),
   };
 }
 
 function toItems(infNFe: Node): NfeItem[] {
   const detList = asArray(infNFe.det).slice(0, MAX_ITEMS);
   return detList.map((det) => {
-    const prod = asNode(asNode(det).prod);
+    const node = asNode(det);
+    const prod = asNode(node.prod);
+    const imposto = asNode(node.imposto);
+    const icms = asNode(asNode(imposto.ICMS)[Object.keys(asNode(imposto.ICMS))[0] ?? '']);
     return {
       description: text(prod.xProd) ?? '',
       quantity: number(prod.qCom),
       total: number(prod.vProd),
+      code: text(prod.cProd),
+      ncm: text(prod.NCM),
+      cfop: text(prod.CFOP),
+      unit: text(prod.uCom),
+      unitPrice: number(prod.vUnCom),
+      icms: number(icms.vICMS),
+      pis: number(asNode(asNode(asNode(imposto.PIS)[Object.keys(asNode(imposto.PIS))[0] ?? '']) ).vPIS),
+      cofins: number(asNode(asNode(asNode(imposto.COFINS)[Object.keys(asNode(imposto.COFINS))[0] ?? '']) ).vCOFINS),
     };
   });
+}
+
+function toDetails(infNFe: Node, ide: Node, emit: Node, dest: Node, total: Node): NfeDetails {
+  const pagNode = asNode(infNFe.pag);
+  const payments = asArray(pagNode.detPag).map((payment) => {
+    const p = asNode(payment);
+    const code = text(p.tPag);
+    return {
+      method: code ? (PAYMENT_METHODS[code] ?? `Código ${code}`) : null,
+      amount: number(p.vPag),
+    };
+  });
+  const transporta = asNode(asNode(infNFe.transp).transporta);
+
+  return {
+    operationNature: text(ide.natOp),
+    operationType: text(ide.tpNF) === '0' ? 'ENTRADA' : text(ide.tpNF) === '1' ? 'SAIDA' : null,
+    issuerAddress: address(asNode(emit.enderEmit)),
+    recipientAddress: address(asNode(dest.enderDest)),
+    taxes: {
+      icmsBase: number(total.vBC),
+      icms: number(total.vICMS),
+      pis: number(total.vPIS),
+      cofins: number(total.vCOFINS),
+      ipi: number(total.vIPI),
+      discount: number(total.vDesc),
+      freight: number(total.vFrete),
+    },
+    payments,
+    carrier: text(transporta.xNome),
+    additionalInfo: text(asNode(infNFe.infAdic).infCpl),
+  };
+}
+
+function address(node: Node): string | null {
+  const parts = [
+    [text(node.xLgr), text(node.nro)].filter(Boolean).join(', '),
+    text(node.xBairro),
+    [text(node.xMun), text(node.UF)].filter(Boolean).join('/'),
+    text(node.CEP) ? `CEP ${text(node.CEP)}` : null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(' - ') : null;
 }
 
 function documentOf(party: Node): string | null {

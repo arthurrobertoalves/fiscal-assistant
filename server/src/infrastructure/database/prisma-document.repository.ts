@@ -1,5 +1,5 @@
 import type { Document as DocumentRow, Prisma, PrismaClient } from '@prisma/client';
-import type { FiscalData, NfeItem } from '../../domain/entities/fiscal-document.js';
+import type { FiscalData, NfeDetails, NfeItem } from '../../domain/entities/fiscal-document.js';
 import type {
   DocumentRecord,
   DocumentRepository,
@@ -86,12 +86,13 @@ function toRow(data: NewDocument): Prisma.DocumentUncheckedCreateInput {
     totalAmount: fiscal.totalAmount,
     hasText: data.hasText,
     extractedText: data.extractedText,
-    extractedData: { items: fiscal.items } as unknown as Prisma.InputJsonValue,
+    extractedData: { items: fiscal.items, details: fiscal.details } as unknown as Prisma.InputJsonValue,
   };
 }
 
 function toRecord(row: DocumentRow, options: { withText?: boolean } = {}): DocumentRecord {
-  const storedItems = (row.extractedData as { items?: NfeItem[] } | null)?.items ?? [];
+  const stored = (row.extractedData as { items?: NfeItem[]; details?: NfeDetails | null } | null) ?? {};
+  const storedItems = stored.items ?? [];
   const fiscal: FiscalData = {
     documentType: row.documentType === 'NFE' ? 'NFE' : null,
     documentNumber: row.documentNumber,
@@ -103,6 +104,7 @@ function toRecord(row: DocumentRow, options: { withText?: boolean } = {}): Docum
     issuedAt: row.issuedAt,
     totalAmount: row.totalAmount === null ? null : Number(row.totalAmount),
     items: storedItems,
+    details: stored.details ?? null,
   };
 
   return {
