@@ -56,7 +56,7 @@ function makeAnalysisRepository(): AnalysisRepository & { saved: NewAnalysis[] }
   };
 }
 
-function fakeAi(analysis: Partial<{ summary: string; insufficientInformation: boolean; issues: { severity: 'INFO' | 'WARNING' | 'ERROR'; message: string }[] }> = {}) {
+function fakeAi(analysis: Partial<{ summary: string; insufficientInformation: boolean }> = {}) {
   const seen: DocumentContextForAi[] = [];
   const ai: AiAssistant & { seen: DocumentContextForAi[] } = {
     model: 'modelo-teste',
@@ -64,9 +64,8 @@ function fakeAi(analysis: Partial<{ summary: string; insufficientInformation: bo
     async analyzeDocument(doc) {
       seen.push(doc);
       return {
-        summary: analysis.summary ?? 'Resumo do documento.',
+        explanation: analysis.summary ?? 'Resumo do documento.',
         insufficientInformation: analysis.insufficientInformation ?? false,
-        issues: analysis.issues ?? [],
       };
     },
     async answerQuestion() {
@@ -88,30 +87,18 @@ describe('DocumentAnalysisService', () => {
     expect(repo.saved[0]?.errorMessage).toMatch(/não configurado/);
   });
 
-  it('com IA, registra COMPLETED com a origem AI em cada observação', async () => {
+  it('com IA, registra COMPLETED com a explicação em texto corrido, sem listas', async () => {
     const repo = makeAnalysisRepository();
-    const ai = fakeAi({
-      summary: 'Venda de pães e cafés.',
-      issues: [{ severity: 'WARNING', message: 'Descrição genérica nos itens.' }],
-    });
+    const ai = fakeAi({ summary: 'Venda de pães e cafés, emitida em 10/05/2026.' });
     const service = new DocumentAnalysisService(repo, ai, () => NOW);
 
     await service.analyze(makeDocument());
 
     const saved = repo.saved[0]!;
     expect(saved.status).toBe('COMPLETED');
-    expect(saved.summary).toBe('Venda de pães e cafés.');
+    expect(saved.summary).toBe('Venda de pães e cafés, emitida em 10/05/2026.');
     expect(saved.aiModel).toBe('modelo-teste');
-    expect(saved.issues.find((issue) => issue.code === 'AI_OBSERVATION')?.source).toBe('AI');
-  });
-
-  it('informa quando a IA considera as informações insuficientes', async () => {
-    const repo = makeAnalysisRepository();
-    const service = new DocumentAnalysisService(repo, fakeAi({ insufficientInformation: true }), () => NOW);
-
-    await service.analyze(makeDocument());
-
-    expect(repo.saved[0]?.issues.map((issue) => issue.code)).toContain('INSUFFICIENT_INFORMATION');
+    expect(saved.issues.every((issue) => issue.source === 'RULE')).toBe(true);
   });
 
   it('falha do provedor vira FAILED sem vazar detalhes técnicos e sem derrubar o fluxo', async () => {

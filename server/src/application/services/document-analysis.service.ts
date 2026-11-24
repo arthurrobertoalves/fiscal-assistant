@@ -10,8 +10,8 @@ export const MAX_TEXT_FOR_AI = 8000;
 const AI_UNAVAILABLE_MESSAGE = 'Falha ao consultar o assistente de IA. Tente novamente em instantes.';
 
 /**
- * Orquestra a análise de um documento: regras determinísticas + IA (quando configurada).
- * A IA complementa as regras; nunca substitui a validação determinística.
+ * Orquestra a análise de um documento. A explicação mostrada ao usuário é a da IA, em texto corrido.
+ * As verificações determinísticas são guardadas apenas para contar pendências no painel.
  */
 export class DocumentAnalysisService {
   constructor(
@@ -20,7 +20,7 @@ export class DocumentAnalysisService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  /** Alertas determinísticos do documento, calculados a partir dos campos já extraídos. */
+  /** Verificações determinísticas do documento, calculadas a partir dos campos já extraídos. */
   ruleIssues(document: DocumentRecord): DocumentIssue[] {
     // Documento que não pôde ser lido não tem campos a verificar: a falha é o alerta.
     if (document.status === 'FAILED') {
@@ -62,32 +62,17 @@ export class DocumentAnalysisService {
         summary: null,
         issues: this.ruleIssues(document),
         aiModel: null,
-        errorMessage: 'Assistente de IA não configurado. Exibindo apenas as verificações automáticas.',
+        errorMessage: 'Assistente de IA não configurado.',
       });
     }
 
     try {
       const result = await this.ai.analyzeDocument(this.contextFor(document));
-      const aiIssues: DocumentIssue[] = result.issues.map((issue) => ({
-        code: 'AI_OBSERVATION',
-        severity: issue.severity,
-        message: issue.message,
-        source: 'AI',
-      }));
-      if (result.insufficientInformation) {
-        aiIssues.push({
-          code: 'INSUFFICIENT_INFORMATION',
-          severity: 'INFO',
-          message: 'As informações do documento não são suficientes para uma análise completa.',
-          source: 'AI',
-        });
-      }
-
       return this.analyses.create({
         documentId: document.id,
         status: 'COMPLETED',
-        summary: result.summary,
-        issues: [...this.ruleIssues(document), ...aiIssues],
+        summary: result.explanation,
+        issues: this.ruleIssues(document),
         aiModel: this.ai.model,
         errorMessage: null,
       });

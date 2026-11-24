@@ -45,29 +45,20 @@ const DOCUMENT: DocumentContextForAi = {
 };
 
 describe('GroqAssistant', () => {
-  it('analisa o documento e converte a resposta JSON validada', async () => {
+  it('devolve a explicação em texto corrido, validada pelo esquema', async () => {
     const { assistant, sent } = assistantWith(
-      JSON.stringify({
-        summary: 'Venda de pães.',
-        insufficient_information: true,
-        issues: [{ severity: 'WARNING', message: 'Descrição genérica.' }],
-      }),
+      JSON.stringify({ explanation: 'Nota de venda de pães emitida em maio.', insufficient_information: false }),
     );
 
     const result = await assistant.analyzeDocument(DOCUMENT);
 
-    expect(result).toEqual({
-      summary: 'Venda de pães.',
-      insufficientInformation: true,
-      issues: [{ severity: 'WARNING', message: 'Descrição genérica.' }],
-    });
-    // Usa saída estruturada (JSON Schema estrito) e o modelo configurado.
+    expect(result).toEqual({ explanation: 'Nota de venda de pães emitida em maio.', insufficientInformation: false });
     expect(sent[0]?.model).toBe('openai/gpt-oss-120b');
     expect(sent[0]?.response_format).toMatchObject({ type: 'json_schema' });
   });
 
   it('rejeita resposta que não segue o esquema', async () => {
-    const { assistant } = assistantWith(JSON.stringify({ summary: 'faltam campos' }));
+    const { assistant } = assistantWith(JSON.stringify({ summary: 'formato antigo' }));
 
     await expect(assistant.analyzeDocument(DOCUMENT)).rejects.toThrow();
   });
@@ -79,7 +70,7 @@ describe('GroqAssistant', () => {
 
   it('neutraliza tentativa de fechar o bloco do documento para injetar instruções', async () => {
     const { assistant, sent } = assistantWith(
-      JSON.stringify({ summary: 'ok', insufficient_information: false, issues: [] }),
+      JSON.stringify({ explanation: 'ok', insufficient_information: false }),
     );
     const malicious: DocumentContextForAi = {
       ...DOCUMENT,
@@ -89,11 +80,20 @@ describe('GroqAssistant', () => {
     await assistant.analyzeDocument(malicious);
 
     const userMessage = sent[0]!.messages.find((message) => message.role === 'user')!.content;
-    // Apenas os delimitadores legítimos do bloco permanecem.
     expect(userMessage.match(/<\/documento>/g)).toHaveLength(1);
     expect(userMessage.match(/<documento /g)).toHaveLength(1);
-    // O prompt de sistema instrui a tratar o conteúdo como dado.
     expect(sent[0]!.messages[0]!.content).toMatch(/NÃO é contador|DADO extraído/);
+  });
+
+  it('instrui a não listar campos que não se aplicam ao tipo do documento', async () => {
+    const { assistant, sent } = assistantWith(
+      JSON.stringify({ explanation: 'ok', insufficient_information: false }),
+    );
+
+    await assistant.analyzeDocument(DOCUMENT);
+
+    expect(sent[0]!.messages[0]!.content).toMatch(/TEXTO CORRIDO/);
+    expect(sent[0]!.messages[0]!.content).toMatch(/Não mencione campos ausentes/);
   });
 
   it('responde perguntas e devolve o texto sem espaços extras', async () => {

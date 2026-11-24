@@ -38,9 +38,8 @@ export interface DocumentContextForAi {
 }
 
 export interface AiDocumentAnalysis {
-  summary: string;
+  explanation: string;
   insufficientInformation: boolean;
-  issues: { severity: 'INFO' | 'WARNING' | 'ERROR'; message: string }[];
 }
 
 /** Provedor de IA. Quando não configurado, o caso de uso registra a análise como SKIPPED. */

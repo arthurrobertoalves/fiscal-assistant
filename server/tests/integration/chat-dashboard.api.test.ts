@@ -13,7 +13,7 @@ function recordingAi(answer: string | Error = 'Resposta de teste.') {
   const received: DocumentContextForAi[][] = [];
   const ai: AiAssistant = {
     model: 'modelo-teste',
-    analyzeDocument: async () => ({ summary: 'ok', insufficientInformation: false, issues: [] }),
+    analyzeDocument: async () => ({ explanation: 'ok', insufficientInformation: false }),
     answerQuestion: async (_question, documents) => {
       received.push(documents);
       if (answer instanceof Error) throw answer;

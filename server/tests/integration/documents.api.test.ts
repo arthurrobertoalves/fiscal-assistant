@@ -267,7 +267,7 @@ describe.skipIf(!url)('API de documentos fiscais (PostgreSQL de teste)', () => {
       const app = buildTestApp(prisma, {
         ai: {
           model: 'modelo-teste',
-          analyzeDocument: async () => ({ summary: 'Venda de pães.', insufficientInformation: false, issues: [] }),
+          analyzeDocument: async () => ({ explanation: 'Venda de pães.', insufficientInformation: false }),
           answerQuestion: async () => 'ok',
         },
       });
