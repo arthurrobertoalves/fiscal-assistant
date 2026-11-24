@@ -1,0 +1,195 @@
+// Schema do Prisma do Assistente Fiscal.
+// Etapa 2: usuários, empresas, vínculos (papéis) e sessões.
+// Os demais modelos (Document, DocumentAnalysis, Conversation, ...) entram nas próximas etapas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(120)
+  // Armazenado sempre em minúsculas (normalizado pela aplicação).
+  email        String   @unique @db.VarChar(254)
+  // Hash Argon2id. Nunca é retornado pela API.
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   CompanyMember[]
+  sessions      Session[]
+  documents     Document[]
+  conversations Conversation[]
+}
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(160)
+  // CNPJ somente com 14 dígitos (sem pontuação).
+  document  String   @unique @db.Char(14)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members        CompanyMember[]
+  activeSessions Session[]
+  documents      Document[]
+  conversations  Conversation[]
+}
+
+model CompanyMember {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @db.Uuid
+  companyId String      @db.Uuid
+  role      CompanyRole
+  createdAt DateTime    @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Um usuário tem no máximo um vínculo por empresa.
+  @@unique([userId, companyId])
+  // Lista de membros de uma empresa.
+  @@index([companyId])
+}
+
+// Sessão de login. Guarda apenas o hash SHA-256 dos refresh tokens.
+// Na rotação, o hash anterior é mantido para detectar reuso de token.
+model Session {
+  id                       String    @id @default(uuid()) @db.Uuid
+  userId                   String    @db.Uuid
+  refreshTokenHash         String    @unique @db.Char(64)
+  previousRefreshTokenHash String?   @unique @db.Char(64)
+  // Empresa ativa escolhida nesta sessão (nula até a seleção).
+  activeCompanyId          String?   @db.Uuid
+  // Validade absoluta da sessão (não é estendida pelas renovações).
+  expiresAt                DateTime
+  revokedAt                DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeCompany Company? @relation(fields: [activeCompanyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([activeCompanyId])
+}
+
+// ---------------------------------------------------------------------------
+// Etapa MVP: documentos fiscais, análises e chat.
+// ---------------------------------------------------------------------------
+
+enum DocumentKind {
+  PDF
+  XML
+}
+
+enum DocumentStatus {
+  PROCESSED
+  FAILED
+}
+
+enum AnalysisStatus {
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+model Document {
+  id                String         @id @default(uuid()) @db.Uuid
+  companyId         String         @db.Uuid
+  uploadedById      String?        @db.Uuid
+  // Nome original, sanitizado (sem caminhos). O arquivo é guardado com nome gerado.
+  originalName      String         @db.VarChar(255)
+  kind              DocumentKind
+  mimeType          String         @db.VarChar(100)
+  sizeBytes         Int
+  // SHA-256 do conteúdo: impede duplicidade dentro da mesma empresa.
+  sha256            String         @db.Char(64)
+  storageKey        String         @unique @db.VarChar(255)
+  status            DocumentStatus
+  failureReason     String?        @db.VarChar(500)
+  // Campos extraídos (nulos quando não existem no documento).
+  documentType      String?        @db.VarChar(40)
+  documentNumber    String?        @db.VarChar(40)
+  accessKey         String?        @db.Char(44)
+  issuerName        String?        @db.VarChar(160)
+  issuerDocument    String?        @db.VarChar(14)
+  recipientName     String?        @db.VarChar(160)
+  recipientDocument String?        @db.VarChar(14)
+  issuedAt          DateTime?
+  totalAmount       Decimal?       @db.Decimal(14, 2)
+  // Texto extraído do PDF (truncado) e dados estruturados completos do XML.
+  extractedText     String?        @db.Text
+  hasText           Boolean        @default(false)
+  extractedData     Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  company  Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  uploadedBy User?           @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  analyses DocumentAnalysis[]
+
+  @@unique([companyId, sha256])
+  @@index([companyId, createdAt])
+}
+
+model DocumentAnalysis {
+  id           String         @id @default(uuid()) @db.Uuid
+  documentId   String         @db.Uuid
+  status       AnalysisStatus
+  summary      String?        @db.Text
+  // Lista de inconsistências/alertas: { code, severity, message, source }.
+  issues       Json
+  aiModel      String?        @db.VarChar(80)
+  errorMessage String?        @db.VarChar(500)
+  createdAt    DateTime       @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
+}
+
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  userId    String    @db.Uuid
+  title     String    @db.VarChar(120)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([companyId, userId, updatedAt])
+}
+
+model Message {
+  id                 String      @id @default(uuid()) @db.Uuid
+  conversationId     String      @db.Uuid
+  role               MessageRole
+  content            String      @db.Text
+  // Documentos usados como fonte numa resposta da IA.
+  sourceDocumentIds  Json?
+  createdAt          DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
