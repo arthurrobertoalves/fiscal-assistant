@@ -33,6 +33,7 @@ export function buildTestApp(prisma: PrismaClient, options: BuildAppOptions = {}
       ACCESS_TOKEN_TTL_SECONDS: 900,
       REFRESH_TOKEN_TTL_DAYS: 30,
       STORAGE_DIR: storageDir,
+      STORAGE_DRIVER: 'local',
       MAX_UPLOAD_MB,
       GROQ_API_KEY: undefined,
       GROQ_MODEL: 'openai/gpt-oss-120b',

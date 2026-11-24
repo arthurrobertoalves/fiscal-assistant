@@ -16,6 +16,7 @@ const envSchema = z.object({
     .transform((value) => value === 'true'),
   // Pasta onde os arquivos enviados são guardados (fora do repositório).
   STORAGE_DIR: z.string().min(1).default('./storage'),
+  STORAGE_DRIVER: z.enum(['local', 'database']).default('local'),
   MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
   // IA (Groq). Sem a chave, a análise e o chat funcionam em modo degradado, sem IA.
   GROQ_API_KEY: z.string().min(1).optional(),

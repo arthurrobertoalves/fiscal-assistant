@@ -193,3 +193,10 @@ model Message {
 
   @@index([conversationId, createdAt])
 }
+
+// Conteúdo dos arquivos enviados, quando o armazenamento é o próprio banco (STORAGE_DRIVER=database).
+model FileBlob {
+  storageKey String   @id @db.VarChar(255)
+  content    Bytes
+  createdAt  DateTime @default(now())
+}

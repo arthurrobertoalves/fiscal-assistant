@@ -45,6 +45,7 @@ import { Argon2PasswordHasher } from '../infrastructure/security/argon2-password
 import { CryptoRefreshTokenCodec } from '../infrastructure/security/crypto-refresh-token.codec.js';
 import { JoseAccessTokenService } from '../infrastructure/security/jose-access-token.service.js';
 import { LocalFileStorage } from '../infrastructure/storage/local-file-storage.js';
+import { PrismaFileStorage } from '../infrastructure/storage/prisma-file-storage.js';
 import { UnpdfTextExtractor } from '../infrastructure/parsers/pdf-text-extractor.js';
 import { NfeXmlParser } from '../infrastructure/parsers/nfe-xml-parser.js';
 import { GroqAssistant } from '../infrastructure/ai/groq-assistant.js';
@@ -55,6 +56,7 @@ export type ContainerConfig = Pick<
   | 'ACCESS_TOKEN_TTL_SECONDS'
   | 'REFRESH_TOKEN_TTL_DAYS'
   | 'STORAGE_DIR'
+  | 'STORAGE_DRIVER'
   | 'MAX_UPLOAD_MB'
   | 'GROQ_API_KEY'
   | 'GROQ_MODEL'
@@ -93,7 +95,7 @@ export function createContainer(
   const refreshTokens = new CryptoRefreshTokenCodec();
 
   // Documentos e IA (infrastructure)
-  const storage = overrides.storage ?? new LocalFileStorage(env.STORAGE_DIR);
+  const storage = overrides.storage ?? (env.STORAGE_DRIVER === 'database' ? new PrismaFileStorage(prisma) : new LocalFileStorage(env.STORAGE_DIR));
   const pdf = overrides.pdf ?? new UnpdfTextExtractor();
   const xml = overrides.xml ?? new NfeXmlParser();
   const ai = resolveAi(env, overrides);
