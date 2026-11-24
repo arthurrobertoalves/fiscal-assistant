@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState } from "@/components/app/empty-state";
 import { LoadingState } from "@/components/app/loading-state";
 import { DocumentStatusBadge } from "@/components/app/status-badge";
-import { apiJson, ApiError } from "@/lib/api";
+import { apiJson } from "@/lib/api";
+import { friendlyError } from "@/lib/error-messages";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { validateUploadFile } from "@/lib/upload-validation";
 import type { DocumentSummary } from "@/lib/types";
@@ -89,7 +90,7 @@ export default function DocumentsPage() {
       setPage(1);
       await load(1);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Não foi possível enviar o arquivo.");
+      setError(friendlyError(caught, "Não foi possível enviar o arquivo. Tente de novo."));
     } finally {
       setUploading(false);
     }
@@ -112,7 +113,7 @@ export default function DocumentsPage() {
             <Input id="file" type="file" accept=".pdf,.xml,application/pdf,text/xml,application/xml" ref={fileInput} />
           </div>
           <Button type="submit" disabled={uploading} className="sm:w-28">
-            {uploading ? "Enviando..." : "Enviar"}
+            {uploading ? "Enviando e analisando..." : "Enviar"}
           </Button>
         </form>
         {error && (

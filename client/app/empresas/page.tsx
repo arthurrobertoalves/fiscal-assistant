@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/app/empty-state";
 import { LoadingState } from "@/components/app/loading-state";
 import { RequireAuth } from "@/components/app/require-auth";
-import { apiJson, ApiError } from "@/lib/api";
+import { apiJson } from "@/lib/api";
+import { friendlyError } from "@/lib/error-messages";
 import { formatDocument, ROLE_LABELS } from "@/lib/format";
 import { cnpjMessage, isValidCnpj, maskCnpj } from "@/lib/masks";
 import type { CompanyWithRole } from "@/lib/types";
@@ -64,7 +65,7 @@ function CompaniesContent() {
       await load();
       await open(created.company.id);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Não foi possível criar a empresa.");
+      setError(friendlyError(caught, "Não foi possível criar a empresa. Tente novamente."));
     } finally {
       setSubmitting(false);
     }

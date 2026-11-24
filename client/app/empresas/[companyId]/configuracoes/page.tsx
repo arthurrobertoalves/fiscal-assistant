@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoadingState } from "@/components/app/loading-state";
-import { apiJson, ApiError } from "@/lib/api";
+import { apiJson } from "@/lib/api";
+import { friendlyError } from "@/lib/error-messages";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateTime, formatDocument, ROLE_LABELS } from "@/lib/format";
 import { emailMessage, isValidEmail } from "@/lib/masks";
@@ -28,6 +29,8 @@ export default function SettingsPage() {
   const [memberRole, setMemberRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Remoção pede confirmação na própria linha, em vez de uma janela do navegador.
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [company, list] = await Promise.all([
@@ -70,7 +73,7 @@ export default function SettingsPage() {
       setMessage(success);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "A operação não pôde ser concluída.");
+      setError(friendlyError(caught, "A operação não pôde ser concluída. Tente de novo."));
     }
   }
 
@@ -89,8 +92,7 @@ export default function SettingsPage() {
   }
 
   async function removeMember(userId: string, self: boolean) {
-    const question = self ? "Sair desta empresa?" : "Remover este membro da empresa?";
-    if (!window.confirm(question)) return;
+    setPendingRemoval(null);
     await run(() => apiJson(`/companies/${companyId}/members/${userId}`, { method: "DELETE" }), self ? "Você saiu da empresa." : "Membro removido.");
   }
 
@@ -151,7 +153,14 @@ export default function SettingsPage() {
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(member.joinedAt)}</TableCell>
                     <TableCell className="text-right">
                       {!isOwner && (canManage || isSelf) && (
-                        <Button variant="outline" size="sm" onClick={() => removeMember(member.userId, isSelf)}>{isSelf ? "Sair" : "Remover"}</Button>
+                        pendingRemoval === member.userId ? (
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setPendingRemoval(null)}>Cancelar</Button>
+                            <Button variant="destructive" size="sm" onClick={() => removeMember(member.userId, isSelf)}>{isSelf ? "Confirmar saída" : "Confirmar remoção"}</Button>
+                          </div>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => setPendingRemoval(member.userId)}>{isSelf ? "Sair" : "Remover"}</Button>
+                        )
                       )}
                     </TableCell>
                   </TableRow>

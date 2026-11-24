@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/app/empty-state";
 import { LoadingState } from "@/components/app/loading-state";
-import { apiJson, ApiError } from "@/lib/api";
+import { apiJson } from "@/lib/api";
+import { friendlyError } from "@/lib/error-messages";
 import { formatDateTime } from "@/lib/format";
 import { stripMarkdown } from "@/lib/text";
 import type { ChatMessage, Conversation } from "@/lib/types";
@@ -101,7 +102,7 @@ export default function ChatPage() {
       // Atualiza a ordem da lista (a conversa mais recente sobe).
       await loadConversations();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Não foi possível enviar a pergunta.");
+      setError(friendlyError(caught, "Não foi possível enviar a pergunta. Tente de novo."));
     } finally {
       setSending(false);
     }
@@ -194,6 +195,13 @@ export default function ChatPage() {
             value={question}
             disabled={!activeId || sending}
             onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter envia; Shift+Enter quebra a linha (atalho de teclado, heurística 7).
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
           />
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground tabular-nums">{question.length}/{MAX_QUESTION}</span>

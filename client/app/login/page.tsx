@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError } from "@/lib/api";
+import { friendlyError } from "@/lib/error-messages";
 import { useAuth } from "@/lib/auth-context";
 import { emailMessage, isValidEmail } from "@/lib/masks";
 
@@ -29,7 +29,7 @@ export default function LoginPage() {
       await login(email, password);
       router.replace("/empresas");
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Não foi possível entrar. Tente novamente.");
+      setError(friendlyError(caught, "Não foi possível entrar. Tente novamente."));
     } finally {
       setSubmitting(false);
     }
