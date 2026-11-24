@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { emailMessage, isValidEmail } from "@/lib/masks";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,6 +18,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const emailError = emailMessage(email);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -42,18 +45,19 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input id="email" type="email" autoComplete="email" required aria-invalid={emailError !== null} value={email} onChange={(e) => setEmail(e.target.value)} />
+          {emailError && <p className="text-xs text-destructive">{emailError}</p>}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input id="password" type="password" autoComplete="current-password" required maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" disabled={submitting} className="h-9 w-full">
+        <Button type="submit" disabled={submitting || !isValidEmail(email) || password.length === 0} className="h-9 w-full">
           {submitting ? "Entrando..." : "Entrar"}
         </Button>
       </form>

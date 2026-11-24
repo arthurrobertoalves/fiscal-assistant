@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { emailMessage, isValidEmail } from "@/lib/masks";
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -18,6 +19,10 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const emailError = emailMessage(email);
+  const passwordError = password.length > 0 && password.length < 8 ? "A senha deve ter pelo menos 8 caracteres." : null;
+  const formValid = name.trim().length >= 2 && isValidEmail(email) && password.length >= 8;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -53,19 +58,24 @@ export default function RegisterPage() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input id="email" type="email" autoComplete="email" required aria-invalid={emailError !== null} value={email} onChange={(e) => setEmail(e.target.value)} />
+          {emailError && <p className="text-xs text-destructive">{emailError}</p>}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Senha</Label>
-          <Input id="password" type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-          <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+          <Input id="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} aria-invalid={passwordError !== null} value={password} onChange={(e) => setPassword(e.target.value)} />
+          {passwordError ? (
+            <p className="text-xs text-destructive">{passwordError}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+          )}
         </div>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" disabled={submitting} className="h-9 w-full">
+        <Button type="submit" disabled={submitting || !formValid} className="h-9 w-full">
           {submitting ? "Criando conta..." : "Criar conta"}
         </Button>
       </form>

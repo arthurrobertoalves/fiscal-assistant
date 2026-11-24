@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/app/loading-state";
 import { apiJson, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateTime, formatDocument, ROLE_LABELS } from "@/lib/format";
+import { emailMessage, isValidEmail } from "@/lib/masks";
 import type { CompanyRole, CompanyWithRole, Member } from "@/lib/types";
 
 /** Permissões aqui são só para a interface: o servidor sempre confere cada operação. */
@@ -166,7 +167,8 @@ export default function SettingsPage() {
             <form onSubmit={addMember} className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex flex-1 flex-col gap-2 sm:max-w-xs">
                 <Label htmlFor="member-email">Email do usuário</Label>
-                <Input id="member-email" type="email" required value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} />
+                <Input id="member-email" type="email" required aria-invalid={emailMessage(memberEmail) !== null} value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} />
+                {emailMessage(memberEmail) && <p className="text-xs text-destructive">{emailMessage(memberEmail)}</p>}
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="member-role">Papel</Label>
@@ -180,7 +182,7 @@ export default function SettingsPage() {
                   <option value="MEMBER">Membro</option>
                 </select>
               </div>
-              <Button type="submit">Adicionar</Button>
+              <Button type="submit" disabled={!isValidEmail(memberEmail)}>Adicionar</Button>
             </form>
           </div>
         )}

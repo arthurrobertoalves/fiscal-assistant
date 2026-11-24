@@ -11,6 +11,7 @@ import { LoadingState } from "@/components/app/loading-state";
 import { RequireAuth } from "@/components/app/require-auth";
 import { apiJson, ApiError } from "@/lib/api";
 import { formatDocument, ROLE_LABELS } from "@/lib/format";
+import { cnpjMessage, isValidCnpj, maskCnpj } from "@/lib/masks";
 import type { CompanyWithRole } from "@/lib/types";
 
 export default function CompaniesPage() {
@@ -28,6 +29,7 @@ function CompaniesContent() {
   const [document, setDocument] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const cnpjError = cnpjMessage(document);
 
   const load = useCallback(async () => {
     const response = await apiJson<{ companies: CompanyWithRole[] }>("/companies");
@@ -123,9 +125,21 @@ function CompaniesContent() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="company-document">CNPJ</Label>
-              <Input id="company-document" required inputMode="numeric" placeholder="00.000.000/0000-00" value={document} onChange={(e) => setDocument(e.target.value)} />
+              <Input
+                id="company-document"
+                required
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="00.000.000/0000-00"
+                maxLength={18}
+                pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}"
+                aria-invalid={cnpjError !== null}
+                value={document}
+                onChange={(e) => setDocument(maskCnpj(e.target.value))}
+              />
+              {cnpjError && <p className="text-xs text-destructive">{cnpjError}</p>}
             </div>
-            <Button type="submit" disabled={submitting} className="h-9">
+            <Button type="submit" disabled={submitting || !isValidCnpj(document) || name.trim().length < 2} className="h-9">
               {submitting ? "Criando..." : "Criar empresa"}
             </Button>
           </form>
