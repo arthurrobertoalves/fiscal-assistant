@@ -1,0 +1,30 @@
+# Blueprint do Render: API do Assistente Fiscal (pasta server/).
+# Segredos (DATABASE_URL, GROQ_API_KEY, CORS_ORIGIN) são preenchidos no painel do Render, nunca aqui.
+services:
+  - type: web
+    name: fiscal-assistant-api
+    runtime: node
+    rootDir: server
+    plan: free
+    healthCheckPath: /health
+    buildCommand: npm ci && npx prisma generate && npm run build && npx prisma migrate deploy
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: STORAGE_DRIVER
+        value: database
+      - key: MAX_UPLOAD_MB
+        value: "10"
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
