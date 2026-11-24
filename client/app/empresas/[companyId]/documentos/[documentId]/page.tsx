@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AnalysisStatusBadge, DocumentStatusBadge } from "@/components/app/status-badge";
-import { IssueList } from "@/components/app/issue-list";
 import { LoadingState } from "@/components/app/loading-state";
 import { apiBlob, apiJson, ApiError } from "@/lib/api";
 import { formatBytes, formatCurrency, formatDate, formatDateTime, formatDocument } from "@/lib/format";
@@ -167,20 +166,10 @@ export default function DocumentDetailPage() {
               <div className="flex flex-col gap-1"><dt className="text-xs text-muted-foreground">Documento do destinatário</dt><dd className="tabular-nums">{formatDocument(fiscal.recipient.document)}</dd></div>
               <div className="flex flex-col gap-1 sm:col-span-2"><dt className="text-xs text-muted-foreground">Chave de acesso</dt><dd className="break-all font-mono text-xs">{fiscal.accessKey ?? "—"}</dd></div>
             </dl>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {doc.hasText ? "Documento sem campos fiscais estruturados. O texto foi usado na análise e no chat." : "Nenhum texto foi extraído deste PDF (pode ser uma imagem digitalizada)."}
-            </p>
-          )}
+          ) : null}
         </section>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-medium">Alertas</h2>
-            <p className="text-sm text-muted-foreground">Verificações automáticas e observações da IA. Revise antes de tomar decisões.</p>
-          </div>
-          <IssueList issues={[...detail.ruleIssues, ...(analysis?.issues ?? []).filter((issue) => issue.source === "AI")]} />
-        </section>
+        
       </div>
 
       {showNfeFields && fiscal.items.length > 0 && (

@@ -70,7 +70,6 @@ export default function DashboardPage() {
                       <SeverityBadge severity={pending.severity} />
                       <span className="truncate text-sm font-medium">{pending.name}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{pending.message}</p>
                   </Link>
                 </li>
               ))}
