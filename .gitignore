@@ -1,0 +1,28 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Ambiente (nunca versionar credenciais reais)
+.env
+.env.*
+!.env.example
+
+# Logs e cobertura
+*.log
+coverage/
+
+# Sistema / editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Arquivos enviados pelos usuários (dados fiscais: nunca versionar).
+# Ancorado: não ignora o código de src/infrastructure/storage.
+/storage/
+/server/storage/

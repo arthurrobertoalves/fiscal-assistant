@@ -1,0 +1,22 @@
+# Banco de dados local do Assistente Fiscal.
+# Porta 5440 no host para não conflitar com outros PostgreSQL locais (ex.: 5432 e 5433 já em uso).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fiscal
+      POSTGRES_PASSWORD: fiscal
+      POSTGRES_DB: fiscal_assistant
+    ports:
+      - "127.0.0.1:5440:5432"
+    volumes:
+      - fiscal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fiscal -d fiscal_assistant"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  fiscal_pgdata:
